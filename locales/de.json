@@ -1,0 +1,79 @@
+{
+  "API tester": "API-Tester",
+  "Send requests to your projects, save them in collections and reuse them.": "Anfragen an deine Projekte senden, in Sammlungen speichern und wiederverwenden.",
+  "Saving …": "Speichert …",
+  "Paste curl": "curl einfügen",
+  "New collection": "Neue Sammlung",
+  "New request": "Neue Anfrage",
+  "History": "Verlauf",
+  "Clear": "Leeren",
+  "Copy as curl": "Als curl kopieren",
+  "Send": "Senden",
+  "They belong to the collection, so every request in it uses the same values.": "Sie gehören zur Sammlung – alle Anfragen darin nutzen dieselben Werte.",
+  "Remove collection": "Sammlung entfernen",
+  "Answer": "Antwort",
+  "Remove": "Entfernen",
+  "No answer yet": "Noch keine Antwort",
+  "Send a request – the answer appears here with status, time and size.": "Sende eine Anfrage – die Antwort erscheint hier mit Status, Zeit und Größe.",
+  "Collections": "Sammlungen",
+  "No collection yet": "Noch keine Sammlung",
+  "Create a collection to keep your requests together.": "Lege eine Sammlung an, um deine Anfragen zusammenzuhalten.",
+  "Pick or create a request": "Anfrage wählen oder anlegen",
+  "Requests live in the collection on the left.": "Anfragen liegen in der Sammlung links.",
+  "Rename": "Umbenennen",
+  "Remove request": "Anfrage entfernen",
+  "Method": "Methode",
+  "Address": "Adresse",
+  "Body": "Inhalt",
+  "Variables": "Variablen",
+  "Name": "Name",
+  "e.g. Shop API": "z. B. Shop-API",
+  "All requests in it are deleted.": "Alle Anfragen darin werden gelöscht.",
+  "Paste a curl command": "curl-Befehl einfügen",
+  "curl …": "curl …",
+  "Rename request": "Anfrage umbenennen",
+  "Form": "Formular",
+  "Text": "Text",
+  "{ \"name\": \"{{user}}\" }": "{ \"name\": \"{{user}}\" }",
+  "curl command copied": "curl-Befehl kopiert",
+  "That is not a valid address (it must start with http:// or https://).": "Das ist keine gültige Adresse (sie muss mit http:// oder https:// beginnen).",
+  "Only http:// and https:// addresses are supported.": "Nur http://- und https://-Adressen werden unterstützt.",
+  "Please paste a command that starts with curl.": "Bitte einen Befehl einfügen, der mit curl beginnt.",
+  "The curl command has no address.": "Der curl-Befehl enthält keine Adresse.",
+  "My first collection": "Meine erste Sammlung",
+  "Home page": "Startseite",
+  "$patterns": [
+    [
+      "Headers ({})",
+      "Kopfzeilen ({})"
+    ],
+    [
+      "Remove “{}”?",
+      "„{}“ entfernen?"
+    ],
+    [
+      "Remove the collection “{}”?",
+      "Sammlung „{}“ entfernen?"
+    ],
+    [
+      "Variables ({})",
+      "Variablen ({})"
+    ],
+    [
+      "Binary answer ({}) – not shown.",
+      "Binäre Antwort ({}) – wird nicht angezeigt."
+    ]
+  ],
+  "Value": "Wert",
+  "Header": "Kopfzeile",
+  "Variable": "Variable",
+  "Request added": "Anfrage hinzugefügt",
+  "No answer within the time limit.": "Keine Antwort innerhalb der Zeitgrenze.",
+  "Nothing answers at this address – is the server running?": "Unter dieser Adresse antwortet nichts – läuft der Server?",
+  "Collection": "Sammlung",
+  "Request": "Anfrage",
+  "(empty)": "(leer)",
+  "Headers": "Kopfzeilen",
+  "Use as {{base}}:": "Als {{base}} nutzen:",
+  "Write {{name}} in the address, headers or body – the value comes from here. Change {{base}} once to switch between local and live.": "Schreibe {{name}} in Adresse, Kopfzeilen oder Inhalt – der Wert kommt von hier. Ändere {{base}} einmal, um zwischen lokal und live zu wechseln."
+}
