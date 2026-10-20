@@ -8,11 +8,13 @@
  *   POST /api/api-tester/to-curl     → { request, vars } → { command }
  *   GET  /api/api-tester/targets     → addresses of web servers, virtual hosts and apps (to pick a base URL)
  *   DELETE /api/api-tester/history   → clear the history
+ *   POST /api/api-tester/openapi     → { text | url } (OpenAPI 3 / Swagger 2, JSON or YAML) → new collection
  * Data: data/api-tester/{collections,history}.json
  */
 const fs = require('fs');
 const path = require('path');
 const C = require('./client');
+const O = require('./openapi');
 
 function activate(host) {
   const { ctx } = host;
@@ -41,6 +43,22 @@ function activate(host) {
   host.router.post('/api-tester/curl', (req, res) => res.json(C.parseCurl((req.body || {}).command)));
   host.router.post('/api-tester/to-curl', (req, res) => { const b = req.body || {}; res.json({ command: C.toCurl(b.request || {}, Object.fromEntries((Array.isArray(b.vars) ? b.vars : []).filter(([k]) => k))) }); });
   host.router.delete('/api-tester/history', (req, res) => { write('history', []); res.json({ ok: true }); });
+  // OpenAPI/Swagger (JSON oder YAML, als Text oder Adresse) → neue Sammlung mit allen Anfragen
+  host.router.post('/api-tester/openapi', async (req, res) => {
+    const b = req.body || {};
+    let text = String(b.text || '');
+    const url = String(b.url || '').trim();
+    if (url) {
+      if (!/^https?:\/\//i.test(url)) throw host.error(400, 'Only http:// and https:// addresses are supported.');
+      const r = await fetch(url, { headers: { Accept: 'application/json, application/yaml, text/yaml, */*' }, signal: AbortSignal.timeout(20000) }).catch((e) => { throw host.error(502, 'The address could not be reached: {msg}', { msg: e.message }); });
+      if (!r.ok) throw host.error(502, 'The address answered with {status}.', { status: r.status });
+      text = await r.text();
+    }
+    let yaml = null; try { yaml = host.lib('yaml'); } catch { /* nur JSON */ }
+    // Nur umwandeln – die Oberfläche fügt die Sammlung über ihren normalen Speicherweg hinzu (keine Überschneidung mit
+    // noch nicht gespeicherten Änderungen)
+    res.json(C.cleanCollections([O.fromOpenApi(O.parseDoc(text, yaml && yaml.parse), { source: url })])[0]);
+  });
   host.router.get('/api-tester/targets', (req, res) => {
     const out = [];
     for (const w of ctx.web ? ctx.web.list() : []) {

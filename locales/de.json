@@ -62,6 +62,14 @@
     [
       "Binary answer ({}) – not shown.",
       "Binäre Antwort ({}) – wird nicht angezeigt."
+    ],
+    [
+      "The YAML could not be read ({}).",
+      "Das YAML lässt sich nicht lesen ({})."
+    ],
+    [
+      "{} requests imported",
+      "{} Anfragen importiert"
     ]
   ],
   "Value": "Wert",
@@ -75,5 +83,15 @@
   "(empty)": "(leer)",
   "Headers": "Kopfzeilen",
   "Use as {{base}}:": "Als {{base}} nutzen:",
-  "Write {{name}} in the address, headers or body – the value comes from here. Change {{base}} once to switch between local and live.": "Schreibe {{name}} in Adresse, Kopfzeilen oder Inhalt – der Wert kommt von hier. Ändere {{base}} einmal, um zwischen lokal und live zu wechseln."
+  "Write {{name}} in the address, headers or body – the value comes from here. Change {{base}} once to switch between local and live.": "Schreibe {{name}} in Adresse, Kopfzeilen oder Inhalt – der Wert kommt von hier. Ändere {{base}} einmal, um zwischen lokal und live zu wechseln.",
+  "Import OpenAPI": "OpenAPI importieren",
+  "Address of the description or the description itself (JSON or YAML)": "Adresse der Beschreibung oder die Beschreibung selbst (JSON oder YAML)",
+  "This is not an OpenAPI or Swagger description (it needs \"openapi\"/\"swagger\" and \"paths\").": "Das ist keine OpenAPI- oder Swagger-Beschreibung (es fehlen „openapi“/„swagger“ und „paths“).",
+  "The description has no operations (paths without get/post/…).": "Die Beschreibung enthält keine Anfragen (Pfade ohne get/post/…).",
+  "Paste an OpenAPI description or enter its address.": "Füge eine OpenAPI-Beschreibung ein oder gib ihre Adresse an.",
+  "The description is larger than 5 MB.": "Die Beschreibung ist größer als 5 MB.",
+  "The JSON could not be read.": "Das JSON lässt sich nicht lesen.",
+  "YAML cannot be read here – please use the JSON version.": "YAML lässt sich hier nicht lesen – bitte die JSON-Fassung nehmen.",
+  "The address could not be reached: {msg}": "Die Adresse ist nicht erreichbar: {msg}",
+  "The address answered with {status}.": "Die Adresse antwortet mit {status}."
 }

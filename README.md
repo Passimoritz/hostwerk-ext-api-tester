@@ -13,6 +13,7 @@ Build, send and save requests to your projects – like Postman, right inside Ho
 - Any method, headers and body (JSON, form, text)
 - Collections with variables ({{base}}, {{token}}) – one switch for local and live
 - Paste a curl command, copy any request as curl
+- Import OpenAPI 3 / Swagger 2 (JSON or YAML, by address or pasted) – a ready collection with every request, variables for path parameters, tokens and API keys
 - Pick the address of your web servers, virtual hosts and apps with one click
 - Response with status, time, size, headers and pretty JSON; history of the last 50
 

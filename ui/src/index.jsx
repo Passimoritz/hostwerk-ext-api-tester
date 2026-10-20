@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Send, Plus, Trash2, Copy, ClipboardPaste, FolderPlus, Save, History, Variable, Globe, X, Zap } from 'lucide-react';
+import { Send, Plus, Trash2, Copy, ClipboardPaste, FolderPlus, Save, History, Variable, Globe, X, Zap, FileJson } from 'lucide-react';
 import { post, put, del, useApi } from '@hostwerk/api';
 import { Btn, Tabs, Seg, Empty, Loading, Callout, InfoTip, toast, promptDialog, confirmDialog } from '@hostwerk/ui';
 import './style.css';
@@ -100,6 +100,18 @@ function ApiTesterPage() {
     if (!command) return;
     try { const r = await post('/api-tester/curl', { command }); addReq({ id: uid(), name: `${r.method} ${r.url.replace(/^https?:\/\//, '').slice(0, 40)}`, ...r }); toast.success('Request added'); } catch (e) { toast.error(e); }
   };
+  // OpenAPI/Swagger: Adresse oder eingefügter Text (JSON/YAML) → neue Sammlung mit allen Anfragen
+  const importOpenApi = async () => {
+    const input = await promptDialog({ title: 'Import OpenAPI', label: 'Address of the description or the description itself (JSON or YAML)', placeholder: 'https://…/openapi.json', multiline: true });
+    if (!input) return;
+    const v = input.trim();
+    try {
+      const c = await post('/api-tester/openapi', /^https?:\/\/\S+$/i.test(v) ? { url: v } : { text: v });
+      update([...(cols || []), c]);
+      setSel({ col: c.id, req: (c.requests[0] || {}).id || null });
+      toast.success(`${c.requests.length} requests imported`);
+    } catch (e) { toast.error(e); }
+  };
   const copyCurl = async () => {
     try { const { command } = await post('/api-tester/to-curl', { request: req, vars: col.vars }); await navigator.clipboard.writeText(command); toast.success('curl command copied'); } catch (e) { toast.error(e); }
   };
@@ -118,6 +130,7 @@ function ApiTesterPage() {
         <div className="actions">
           {dirty && <span className="small muted">Saving …</span>}
           <Btn className="sm" icon={ClipboardPaste} onClick={pasteCurl}>Paste curl</Btn>
+          <Btn className="sm" icon={FileJson} onClick={importOpenApi}>Import OpenAPI</Btn>
           <Btn className="sm" icon={FolderPlus} onClick={addCol}>New collection</Btn>
         </div>
       </div>

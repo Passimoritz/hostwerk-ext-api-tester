@@ -13,6 +13,7 @@ Anfragen an deine Projekte bauen, senden und speichern – wie Postman, nur dire
 - Jede Methode, Kopfzeilen und Inhalt (JSON, Formular, Text)
 - Sammlungen mit Variablen ({{base}}, {{token}}) – ein Schalter für lokal und live
 - curl-Befehl einfügen, jede Anfrage als curl kopieren
+- OpenAPI 3 / Swagger 2 importieren (JSON oder YAML, per Adresse oder eingefügt) – fertige Sammlung mit allen Anfragen, Variablen für Pfad-Parameter, Token und API-Schlüssel
 - Adresse deiner Webserver, virtuellen Hosts und Apps mit einem Klick wählen
 - Antwort mit Status, Zeit, Größe, Kopfzeilen und lesbarem JSON; Verlauf der letzten 50
 
