@@ -28,6 +28,21 @@ function activate(host) {
     write('collections', [{ id: 'start', name: host.t('My first collection'), vars: [['base', 'http://localhost']], requests: [{ id: 'hello', name: host.t('Home page'), method: 'GET', url: '{{base}}/', headers: [], body: '', bodyType: 'json' }] }]);
   }
 
+  // Dienst für andere Erweiterungen (Synergie, z. B. Webhook-Postfach → „Im API-Tester öffnen“): eine Anfrage in eine
+  // Sammlung legen (wird angelegt, falls es sie noch nicht gibt) → { col, req } zum direkten Öffnen (#/ext/api-tester?col=…&req=…)
+  host.provide('apiTester', {
+    addRequest(request, { collection = 'Webhook inbox' } = {}) {
+      const all = C.cleanCollections(read('collections', []));
+      const name = host.t(collection);
+      let col = all.find((c) => c.name === name);
+      if (!col) { col = { id: Math.random().toString(36).slice(2, 10), name, vars: [], requests: [] }; all.push(col); }
+      const r = C.cleanCollections([{ id: 'x', name: 'x', vars: [], requests: [request] }])[0].requests[0];
+      col.requests.unshift(r);
+      write('collections', C.cleanCollections(all));
+      return { col: col.id, req: r.id };
+    },
+  });
+
   host.router.get('/api-tester', (req, res) => res.json({ collections: read('collections', []), history: read('history', []) }));
   host.router.put('/api-tester/collections', (req, res) => { const c = C.cleanCollections((req.body || {}).collections); write('collections', c); res.json(c); });
   host.router.post('/api-tester/send', async (req, res) => {

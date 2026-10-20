@@ -93,5 +93,6 @@
   "The JSON could not be read.": "Das JSON lässt sich nicht lesen.",
   "YAML cannot be read here – please use the JSON version.": "YAML lässt sich hier nicht lesen – bitte die JSON-Fassung nehmen.",
   "The address could not be reached: {msg}": "Die Adresse ist nicht erreichbar: {msg}",
-  "The address answered with {status}.": "Die Adresse antwortet mit {status}."
+  "The address answered with {status}.": "Die Adresse antwortet mit {status}.",
+  "Webhook inbox": "Webhook-Postfach"
 }

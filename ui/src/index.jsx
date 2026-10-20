@@ -55,7 +55,7 @@ function Answer({ r }) {
   );
 }
 
-function ApiTesterPage() {
+function ApiTesterPage({ query = '' } = {}) {
   const st = useApi('/api-tester', [], { live: false });
   const targets = useApi('/api-tester/targets', [], { live: false });
   const [cols, setCols] = useState(null);
@@ -65,7 +65,8 @@ function ApiTesterPage() {
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   const saveT = useRef(null);
-  useEffect(() => { if (st.data && !cols) { setCols(st.data.collections); const c = st.data.collections[0]; if (c) setSel({ col: c.id, req: (c.requests[0] || {}).id || null }); } }, [st.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Direkt öffnen (z. B. aus dem Webhook-Postfach: #/ext/api-tester?col=…&req=…), sonst die erste Sammlung
+  useEffect(() => { if (st.data && !cols) { setCols(st.data.collections); const q = new URLSearchParams(query); const want = st.data.collections.find((x) => x.id === q.get('col')); const c = want || st.data.collections[0]; if (c) setSel({ col: c.id, req: (want && c.requests.some((r) => r.id === q.get('req')) ? q.get('req') : (c.requests[0] || {}).id) || null }); } }, [st.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const col = (cols || []).find((c) => c.id === sel.col) || null;
   const req = col ? col.requests.find((r) => r.id === sel.req) || null : null;
 
