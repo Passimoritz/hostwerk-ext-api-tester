@@ -10,6 +10,7 @@ Build, send and save requests to your projects – like Postman, right inside Ho
 
 ## What it does
 
+- **Where:** Projects → API tester – no own sidebar entry since 1.4.0; the full page stays under Extensions → Open
 - Any method, headers and body (JSON, form, form with files, text); follow redirects and a time limit per request, cancel
 - Collections with folders and variables ({{base}}, {{token}}); environments (local, staging, live) – one switch at the top of the collection
 - Secret variables (lock) are stored sealed and only shown masked; the history keeps no Authorization, cookie or token values
