@@ -9,7 +9,7 @@
     "de": "Anfragen an deine Projekte bauen, senden und speichern – wie Postman, nur direkt in Hostwerk: Sammlungen, Variablen wie {{base}}, curl einfügen und kopieren, Antworten übersichtlich mit Zeit und Größe.",
     "en": "Build, send and save requests to your projects – like Postman, right inside Hostwerk: collections, variables like {{base}}, paste and copy curl, clear responses with time and size."
   },
-  "version": "1.2.0",
+  "version": "1.3.0",
   "author": "Hostwerk",
   "homepage": "https://github.com/Passimoritz/hostwerk-ext-api-tester",
   "license": "MIT",
@@ -30,7 +30,10 @@
       "de": "Anfragen an deine Projekte senden und speichern.",
       "en": "Send and save requests to your projects."
     },
-    "icon": "zap"
+    "icon": "zap",
+    "nav": {
+      "group": "develop"
+    }
   },
   "backend": "server/index.js",
   "ui": "ui/index.js",
@@ -45,9 +48,40 @@
         "de": "Empfangene Anfragen aus dem Webhook-Postfach hier öffnen, ändern und erneut senden.",
         "en": "Open received requests from the webhook inbox here, change them and send them again."
       }
+    },
+    {
+      "with": "profiler",
+      "title": {
+        "de": "Diese Anfrage messen",
+        "en": "Measure this request"
+      },
+      "text": {
+        "de": "Eine Anfrage mit einem Klick im Profiler messen – mit allen Variablen.",
+        "en": "Measure a request in the profiler with one click – with all variables."
+      }
+    },
+    {
+      "with": "page-check",
+      "title": {
+        "de": "Seite prüfen",
+        "en": "Check page"
+      },
+      "text": {
+        "de": "Eine GET-Adresse mit einem Klick im Seiten-Check prüfen.",
+        "en": "Check a GET address in the page check with one click."
+      }
     }
   ],
   "provides": [
     "apiTester"
-  ]
+  ],
+  "uses": [
+    "profiler",
+    "pageCheck"
+  ],
+  "allowExtensions": {
+    "*": [
+      "tabs"
+    ]
+  }
 }

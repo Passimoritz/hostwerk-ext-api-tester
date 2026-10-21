@@ -10,10 +10,14 @@ Anfragen an deine Projekte bauen, senden und speichern – wie Postman, nur dire
 
 ## Was sie kann
 
-- Jede Methode, Kopfzeilen und Inhalt (JSON, Formular, Text)
-- Sammlungen mit Variablen ({{base}}, {{token}}) – ein Schalter für lokal und live
+- Jede Methode, Kopfzeilen und Inhalt (JSON, Formular, Formular mit Dateien, Text); Weiterleitungen folgen und Zeitlimit je Anfrage, Abbrechen
+- Sammlungen mit Ordnern und Variablen ({{base}}, {{token}}); Umgebungen (lokal, Staging, live) – ein Umschalter oben an der Sammlung
+- Geheime Variablen (Schloss) werden versiegelt gespeichert und nur verdeckt gezeigt; der Verlauf behält keine Authorization-, Cookie- oder Token-Werte
+- Prüfungen je Anfrage (Status, JSON-Feld, Kopfzeile, Text, Zeit), „Sammlung ausführen“ und täglich als Hostwerk-Aufgabe
+- Cookies je Sammlung merken (Anmeldungen, Sitzungen)
 - curl-Befehl einfügen, jede Anfrage als curl kopieren
-- OpenAPI 3 / Swagger 2 importieren (JSON oder YAML, per Adresse oder eingefügt) – fertige Sammlung mit allen Anfragen, Variablen für Pfad-Parameter, Token und API-Schlüssel
+- Importieren aus Postman, Insomnia und OpenAPI 3 / Swagger 2 (JSON oder YAML, per Adresse oder eingefügt), Export für Postman
+- Mit „Leistungs-Messung“ und „Seiten-Check“: „Diese Anfrage messen“ und „Seite prüfen“ mit einem Klick
 - Adresse deiner Webserver, virtuellen Hosts und Apps mit einem Klick wählen
 - Antwort mit Status, Zeit, Größe, Kopfzeilen und lesbarem JSON; Verlauf der letzten 50
 

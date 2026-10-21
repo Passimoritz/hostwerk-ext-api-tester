@@ -33,7 +33,7 @@ test('OpenAPI 3: base URL with server variables, one request per operation, tags
   assert.strictEqual(c.name, 'Pet store 1.2');
   assert.deepStrictEqual(c.vars.find(([k]) => k === 'base'), ['base', 'https://api.pets.example/v1']);
   assert.strictEqual(c.requests.length, 4);
-  assert.deepStrictEqual(c.requests.map((r) => `${r.method} ${r.name}`), ['GET pets: List pets', 'POST pets: Create a pet', 'GET pets: showPet', 'DELETE pets: Delete a pet']);
+  assert.deepStrictEqual(c.requests.map((r) => `${r.folder}/${r.method} ${r.name}`), ['pets/GET List pets', 'pets/POST Create a pet', 'pets/GET showPet', 'pets/DELETE Delete a pet'], 'tags become folders');
 });
 
 test('OpenAPI 3: required query params filled, path params become variables, headers kept', () => {

@@ -126,10 +126,10 @@ function fromOpenApi(doc, { uid = () => Math.random().toString(36).slice(2, 10),
         if (bp) body = JSON.stringify(sample(doc, bp.schema || {}) ?? {}, null, 2);
         else if (fp.length) { bodyType = 'form'; body = new URLSearchParams(fp.map((x) => [x.name, x.default !== undefined ? String(x.default) : ''])).toString(); }
       }
-      // Gruppe (erster Tag) vor den Namen – die Sammlung kennt keine Ordner, so bleiben zusammengehörige Anfragen beieinander
-      const tag = Array.isArray(op.tags) && op.tags.length ? String(op.tags[0]).slice(0, 30) : '';
-      const name = `${tag ? `${tag}: ` : ''}${String(op.summary || op.operationId || `${m.toUpperCase()} ${p}`).replace(/\s+/g, ' ').trim()}`.slice(0, 110);
-      requests.push({ id: uid(), name, method: m.toUpperCase(), url, headers, body: ['get', 'head'].includes(m) ? '' : body, bodyType });
+      // Gruppe (erster Tag) wird zum Ordner der Sammlung – zusammengehörige Anfragen stehen beieinander
+      const tag = Array.isArray(op.tags) && op.tags.length ? String(op.tags[0]).replace(/\//g, '-').slice(0, 30) : '';
+      const name = String(op.summary || op.operationId || `${m.toUpperCase()} ${p}`).replace(/\s+/g, ' ').trim().slice(0, 110);
+      requests.push({ id: uid(), name, folder: tag, method: m.toUpperCase(), url, headers, body: ['get', 'head'].includes(m) ? '' : body, bodyType });
     }
   }
   if (!requests.length) throw Object.assign(new Error('The description has no operations (paths without get/post/…).'), { status: 400 });

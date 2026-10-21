@@ -10,10 +10,14 @@ Build, send and save requests to your projects – like Postman, right inside Ho
 
 ## What it does
 
-- Any method, headers and body (JSON, form, text)
-- Collections with variables ({{base}}, {{token}}) – one switch for local and live
+- Any method, headers and body (JSON, form, form with files, text); follow redirects and a time limit per request, cancel
+- Collections with folders and variables ({{base}}, {{token}}); environments (local, staging, live) – one switch at the top of the collection
+- Secret variables (lock) are stored sealed and only shown masked; the history keeps no Authorization, cookie or token values
+- Checks per request (status, JSON field, header, text, time), “Run collection” and every day as a Hostwerk task
+- Remember cookies per collection (log-ins, sessions)
 - Paste a curl command, copy any request as curl
-- Import OpenAPI 3 / Swagger 2 (JSON or YAML, by address or pasted) – a ready collection with every request, variables for path parameters, tokens and API keys
+- Import from Postman, Insomnia and OpenAPI 3 / Swagger 2 (JSON or YAML, by address or pasted), export for Postman
+- With “Profiler” and “Page check”: “Measure this request” and “Check page” with one click
 - Pick the address of your web servers, virtual hosts and apps with one click
 - Response with status, time, size, headers and pretty JSON; history of the last 50
 
