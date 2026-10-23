@@ -3,6 +3,7 @@ import { Send, Plus, Trash2, Copy, ClipboardPaste, FolderPlus, Save, History, Va
 import { get, post, put, del, useApi, waitJob, pickPath, canPickPath } from '@hostwerk/api';
 import { Btn, Tabs, Seg, Switch, SettingRow, Empty, Loading, Callout, InfoTip, toast, promptDialog, confirmDialog } from '@hostwerk/ui';
 import { t } from '@hostwerk/i18n';
+import { useFill } from './fill';
 import './style.css';
 
 /*
@@ -163,6 +164,9 @@ function Tree({ col, sel, onPick, onAdd }) {
 }
 
 function ApiTesterPage({ query = '' } = {}) {
+  // Wie ein echtes API-Werkzeug: Sammlungen links, rechts oben die Anfrage, unten die Antwort – alles in der Fensterhöhe,
+  // nur die Flächen scrollen
+  const fill = useFill({ min: 420 });
   const st = useApi('/api-tester', [], { live: false });
   const targets = useApi('/api-tester/targets', [], { live: false });
   const [cols, setCols] = useState(null);
@@ -292,7 +296,7 @@ function ApiTesterPage({ query = '' } = {}) {
           <Btn className="sm" icon={FolderPlus} onClick={() => addCol()}>New collection</Btn>
         </div>
       </div>
-      <div className="apit-grid">
+      <div className="apit-grid" ref={fill}>
         <aside className="card apit-side" aria-label="Collections">
           {(cols || []).map((c) => (
             <div key={c.id} className="apit-col">
@@ -333,7 +337,7 @@ function ApiTesterPage({ query = '' } = {}) {
             <Empty icon={Send} title="Pick or create a request" text="Requests live in the collection on the left."><Btn className="primary" icon={Plus} onClick={() => addReq()}>New request</Btn></Empty>
           ) : (
             <>
-              <div className="card">
+              <div className="card apit-req-card">
                 <div className="card-head">
                   <button type="button" className="link-btn bold" title="Rename" onClick={rename}>{req.name}</button>
                   <button type="button" className="btn ghost xs" title="Move to folder" onClick={move}><Folder size={13} />{req.folder || t('no folder')}</button>
@@ -393,7 +397,7 @@ function ApiTesterPage({ query = '' } = {}) {
                   )}
                 </div>
               </div>
-              <div className="card"><div className="card-head"><Save size={16} /><h3>Answer</h3></div><div className="card-body">{busy ? <Loading /> : <Answer r={answer} />}</div></div>
+              <div className="card apit-answer-card"><div className="card-head"><Save size={16} /><h3>Answer</h3></div><div className="card-body apit-answer-body">{busy ? <Loading /> : <Answer r={answer} />}</div></div>
             </>
           )}
         </main>

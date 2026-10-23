@@ -1,3 +1,7 @@
+## 1.5.0
+
+- Like a real API tool: collections on the left, request on top and answer below share the window height – every area scrolls on its own, the page stays put / Wie ein echtes API-Werkzeug: Sammlungen links, Anfrage oben und Antwort unten teilen sich die Fensterhöhe – jede Fläche scrollt für sich, die Seite bleibt stehen
+
 ## 1.4.0
 
 - Lives where it belongs: Projects → API tester – no own sidebar entry any more (Hostwerk 3.0+); the full page stays under Extensions → Open and can be pinned in the sidebar settings. / Steckt jetzt dort, wo sie hingehört: Projekte → API-Tester – kein eigener Seitenleisten-Eintrag mehr (Hostwerk 3.0+); die ganze Seite bleibt unter Erweiterungen → Öffnen und lässt sich in den Seitenleisten-Einstellungen anheften.
