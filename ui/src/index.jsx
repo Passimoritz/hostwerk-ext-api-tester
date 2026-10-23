@@ -348,7 +348,7 @@ function ApiTesterPage({ query = '' } = {}) {
                     <Btn className="sm ghost" icon={Trash2} title="Remove request" aria-label="Remove request" onClick={() => removeReq(req)} />
                   </div>
                 </div>
-                <div className="card-body stack apit-body">
+                <div className="card-body stack apit-body" tabIndex={0} role="region" aria-label={t('Request')}>
                   <form className="apit-line" onSubmit={(e) => { e.preventDefault(); sendNow(); }}>
                     <select className="select apit-method" value={req.method} aria-label="Method" onChange={(e) => patchReq({ method: e.target.value })}>{METHODS.map((m) => <option key={m}>{m}</option>)}</select>
                     <input className="input mono grow" value={req.url} aria-label="Address" placeholder="{{base}}/api/users" onChange={(e) => patchReq({ url: e.target.value })} />
@@ -397,7 +397,7 @@ function ApiTesterPage({ query = '' } = {}) {
                   )}
                 </div>
               </div>
-              <div className="card apit-answer-card"><div className="card-head"><Save size={16} /><h3>Answer</h3></div><div className="card-body apit-answer-body">{busy ? <Loading /> : <Answer r={answer} />}</div></div>
+              <div className="card apit-answer-card"><div className="card-head"><Save size={16} /><h3>Answer</h3></div><div className="card-body apit-answer-body" tabIndex={0} role="region" aria-label={t('Answer')}>{busy ? <Loading /> : <Answer r={answer} />}</div></div>
             </>
           )}
         </main>

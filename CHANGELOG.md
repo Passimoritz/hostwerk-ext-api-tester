@@ -1,3 +1,7 @@
+## 1.5.1
+
+- Request and answer areas can be reached and scrolled with the keyboard, with a visible focus (WCAG) / Anfrage- und Antwortfläche lassen sich per Tastatur erreichen und scrollen, mit sichtbarem Fokus (WCAG)
+
 ## 1.5.0
 
 - Like a real API tool: collections on the left, request on top and answer below share the window height – every area scrolls on its own, the page stays put / Wie ein echtes API-Werkzeug: Sammlungen links, Anfrage oben und Antwort unten teilen sich die Fensterhöhe – jede Fläche scrollt für sich, die Seite bleibt stehen

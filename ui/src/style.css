@@ -8,6 +8,8 @@
 .apit-answer-card { flex: 1 1 0; min-height: 140px; display: flex; flex-direction: column; }
 .apit-answer-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .apit-answer-body .apit-pre { max-height: none; }
+/* Scrollflächen sind per Tastatur erreichbar (Pfeiltasten scrollen) – mit sichtbarem Fokus */
+.apit-answer-body:focus-visible, .apit-req-card > .apit-body:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
 @media (max-width: 900px) { .apit-grid { grid-template-columns: 1fr; height: auto !important; } .apit-grid > .apit-main { overflow: visible; } .apit-req-card { max-height: none; } }
 .apit-side { padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
 .apit-col { display: flex; flex-direction: column; gap: 2px; }
