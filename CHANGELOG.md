@@ -1,3 +1,7 @@
+## 1.5.2
+
+- New animated icon and banner in the common Hostwerk style (isometric block). / Neues animiertes Symbol und Banner im gemeinsamen Hostwerk-Stil (isometrischer Block).
+
 ## 1.5.1
 
 - Request and answer areas can be reached and scrolled with the keyboard, with a visible focus (WCAG) / Anfrage- und Antwortfläche lassen sich per Tastatur erreichen und scrollen, mit sichtbarem Fokus (WCAG)

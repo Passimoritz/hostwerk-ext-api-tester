@@ -9,7 +9,7 @@
     "de": "Anfragen an deine Projekte bauen, senden und speichern – wie Postman, nur direkt in Hostwerk: Sammlungen, Variablen wie {{base}}, curl einfügen und kopieren, Antworten übersichtlich mit Zeit und Größe.",
     "en": "Build, send and save requests to your projects – like Postman, right inside Hostwerk: collections, variables like {{base}}, paste and copy curl, clear responses with time and size."
   },
-  "version": "1.5.1",
+  "version": "1.5.2",
   "author": "Hostwerk",
   "homepage": "https://github.com/Passimoritz/hostwerk-ext-api-tester",
   "license": "MIT",
