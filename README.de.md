@@ -4,7 +4,7 @@
 
 Anfragen an deine Projekte bauen, senden und speichern – wie Postman, nur direkt in Hostwerk: Sammlungen, Variablen wie {{base}}, curl einfügen und kopieren, Antworten übersichtlich mit Zeit und Größe.
 
-[English](README.md) · Eine offizielle [Hostwerk](https://github.com/Passimoritz/hostwerk-public) Erweiterung (SDK 2.7, native Erweiterung)
+[English](README.md) · Offizielle [Hostwerk](https://github.com/Passimoritz/hostwerk-public)-Erweiterung (native Erweiterung, ab Hostwerk 2.10)
 
 ![Screenshot](docs/screenshot.de.png)
 
