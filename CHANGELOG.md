@@ -1,3 +1,7 @@
+## 1.5.3
+
+- The example collection created on first start (“My first collection”, “Local”, “Live”, “Home page”) follows Hostwerk’s language as long as you have not renamed it. / Die Beispiel-Sammlung vom ersten Start („Meine erste Sammlung“, „Lokal“, „Live“, „Startseite“) folgt Hostwerks Sprache, solange du sie nicht umbenannt hast.
+
 ## 1.5.2
 
 - New animated icon and banner in the common Hostwerk style (isometric block). / Neues animiertes Symbol und Banner im gemeinsamen Hostwerk-Stil (isometrischer Block).

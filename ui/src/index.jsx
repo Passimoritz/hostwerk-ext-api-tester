@@ -6,6 +6,11 @@ import { t } from '@hostwerk/i18n';
 import { useFill } from './fill';
 import './style.css';
 
+// Die Beispiel-Sammlung entsteht in der Sprache beim Einrichten – unveränderte Namen zeigt die Seite in der aktuellen Sprache
+const SEED_DE = { 'My first collection': 'Meine erste Sammlung', Local: 'Lokal', Live: 'Live', 'Home page': 'Startseite' };
+const SEED = Object.fromEntries(Object.entries(SEED_DE).flatMap(([en, de]) => [[en, en], [de, en]]));
+const shown = (name) => (SEED[name] ? t(SEED[name]) : name);
+
 /*
  * API tester: collections (with folders) on the left, the request in the middle, the answer below.
  * Environments (local / staging / live) per collection, secret variables (sealed on the server, masked here), checks per
@@ -147,7 +152,7 @@ function Tree({ col, sel, onPick, onAdd }) {
   }, [col.requests]);
   const item = (r) => (
     <button type="button" key={r.id} className={`list-item apit-req ${r.id === sel ? 'is-active' : ''}`} aria-current={r.id === sel ? 'true' : undefined} onClick={() => onPick(r.id)}>
-      <span className={`apit-m apit-m-${r.method.toLowerCase()}`}>{r.method}</span><span className="ellipsis small">{r.name}</span>
+      <span className={`apit-m apit-m-${r.method.toLowerCase()}`}>{r.method}</span><span className="ellipsis small">{shown(r.name)}</span>
     </button>
   );
   return (
@@ -300,7 +305,7 @@ function ApiTesterPage({ query = '' } = {}) {
         <aside className="card apit-side" aria-label="Collections">
           {(cols || []).map((c) => (
             <div key={c.id} className="apit-col">
-              <button type="button" className={`apit-col-name ${c.id === sel.col ? 'is-active' : ''}`} onClick={() => setSel({ col: c.id, req: (c.requests[0] || {}).id || null })}>{c.name}</button>
+              <button type="button" className={`apit-col-name ${c.id === sel.col ? 'is-active' : ''}`} onClick={() => setSel({ col: c.id, req: (c.requests[0] || {}).id || null })}>{shown(c.name)}</button>
               {c.id === sel.col && <Tree col={c} sel={sel.req} onPick={(id) => { setSel({ col: c.id, req: id }); setAnswer(null); }} onAdd={() => addReq()} />}
             </div>
           ))}
@@ -319,10 +324,10 @@ function ApiTesterPage({ query = '' } = {}) {
           {col && (
             <div className="row-tight apit-colbar">
               <Layers size={14} className="muted" />
-              <b className="small">{col.name}</b>
+              <b className="small">{shown(col.name)}</b>
               {(col.envs || []).length > 0 && (
                 <select className="select sm apit-env" aria-label="Environment" value={col.env || ''} onChange={(e) => patchCol({ env: e.target.value || null })}>
-                  {col.envs.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                  {col.envs.map((e) => <option key={e.id} value={e.id}>{shown(e.name)}</option>)}
                 </select>
               )}
               <InfoTip title="Environments">Switch between local, staging and live in one go: the values of the chosen environment replace the variables of the collection – {'{{base}}'} points to the right server.</InfoTip>
