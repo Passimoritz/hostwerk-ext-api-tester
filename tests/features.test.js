@@ -148,3 +148,74 @@ test('collection run with checks; cancel a running request', async () => {
   assert.ok(res.cancelled);
   assert.ok(!svc.running.has('r1'));
 });
+
+test('secret variables: unlocking gives the plain value back, renaming keeps the value', async () => {
+  const { svc } = service(async (url) => resp(200, url, {}, { url }));
+  let page = svc.saveFromPage([{ id: 'c', name: 'S', vars: [['token', 'TOPSECRET', true], ['key', 'K1', true]], requests: [] }]);
+  assert.deepStrictEqual(page[0].vars.map((v) => v[1]), [C.MASK, C.MASK]);
+  // Lock off on "token" (value still masked on the page), "key" renamed to "apikey"
+  page = svc.saveFromPage([{ ...page[0], vars: [['token', C.MASK, false], ['apikey', C.MASK, true]] }]);
+  assert.deepStrictEqual(page[0].vars[0], ['token', 'TOPSECRET', false], 'no "sealed:…" text after unlocking');
+  assert.deepStrictEqual(svc.opened()[0].vars[1], ['apikey', 'K1', true]);
+  const r = await svc.sendOne('c', { method: 'GET', url: 'http://x/{{token}}/{{apikey}}' }, { history: false });
+  assert.strictEqual(r.body, 'http://x/TOPSECRET/K1');
+});
+
+test('collection run: a request without a valid address fails alone, the run goes on', async () => {
+  const { svc } = service(async (url) => resp(200, '{}', {}, { url }));
+  svc.saveFromPage([{ id: 'c', name: 'S', vars: [], requests: [
+    { id: 'a', name: 'Broken', method: 'GET', url: '{{missing}}/x', checks: [{ kind: 'status', op: 'eq', value: '200' }] },
+    { id: 'b', name: 'Ok', method: 'GET', url: 'http://x/ok' },
+  ] }]);
+  const run = await svc.runCollection('c');
+  assert.deepStrictEqual(run.results.map((x) => x.ok), [false, true]);
+  assert.match(run.results[0].error, /valid address/);
+  assert.strictEqual(run.results[0].checks[0].ok, false);
+});
+
+test('saving junk from the page drops broken entries instead of failing', () => {
+  const out = C.cleanCollections([null, 1, 'x', [], { id: 'c', name: 'Ok', envs: [null, { id: 'e' }], cookies: { h: null }, requests: [null, { id: 'r', headers: [null, ['A', 'b'], 'x'] }] }]);
+  assert.strictEqual(out.length, 1);
+  assert.deepStrictEqual(out[0].envs.map((e) => e.id), ['e']);
+  assert.deepStrictEqual(out[0].requests[0].headers, [['A', 'b']]);
+});
+
+test('a huge or endless answer is not read completely (memory stays small)', async () => {
+  let pulled = 0;
+  const endless = new ReadableStream({ pull(ctl) { pulled += 1; ctl.enqueue(new Uint8Array(1024 * 1024).fill(97)); } });
+  const fetchFn = async (url) => ({ status: 200, statusText: 'OK', url, headers: new Headers({ 'content-type': 'text/plain' }), body: endless });
+  const r = await C.send({ method: 'GET', url: 'http://x/stream' }, {}, { fetchFn });
+  assert.ok(r.cut);
+  assert.strictEqual(r.body.length, 2 * 1024 * 1024);
+  assert.ok(r.size >= 64 * 1024 * 1024 && pulled < 80, 'stops counting after 64 MB');
+});
+
+test('values of secret variables never reach the history or the page', async () => {
+  const { svc } = service(async (url) => resp(200, '{}', {}, { url }));
+  svc.saveFromPage([{ id: 'c', name: 'S', vars: [['tok', 'SUPERSECRET42', true]], requests: [] }]);
+  const r = await svc.sendOne('c', { method: 'POST', url: 'http://x/?q={{tok}}', headers: [['X-Custom', 'k {{tok}}']], body: '{"p":"{{tok}}"}' });
+  assert.ok(!JSON.stringify(r.request).includes('SUPERSECRET42'));
+  assert.ok(!JSON.stringify(svc.read('history', [])).includes('SUPERSECRET42'));
+});
+
+test('size over 64 MB is marked as "at least"; small answers are not', async () => {
+  const endless = new ReadableStream({ pull(ctl) { ctl.enqueue(new Uint8Array(1024 * 1024).fill(97)); } });
+  const big = await C.send({ method: 'GET', url: 'http://x/stream' }, {}, { fetchFn: async (url) => ({ status: 200, statusText: 'OK', url, headers: new Headers({ 'content-type': 'text/plain' }), body: endless }) });
+  assert.strictEqual(big.sizeAtLeast, true);
+  const small = await C.send({ method: 'GET', url: 'http://x/a' }, {}, { fetchFn: async (url) => resp(200, 'hi', {}, { url }) });
+  assert.strictEqual(small.sizeAtLeast, undefined);
+});
+
+test('secret values are also masked URL-encoded (spaces and special characters in the address)', async () => {
+  const scrub = C.scrubber(['a b&c=d/ü', 'xy']);
+  for (const s of ['http://h/?k=a%20b%26c%3Dd%2F%C3%BC', 'http://h/?k=a+b%26c%3Dd%2F%C3%BC', 'http://h/a%20b&c=d/%C3%BC', 'raw a b&c=d/ü']) assert.ok(!/a(%20|\+| )b/.test(scrub(s)), `${s} → ${scrub(s)}`);
+  assert.strictEqual(scrub('xy stays'), 'xy stays', 'too short values are not masked');
+  const sent = [];
+  const { svc } = service(async (url) => { sent.push(url); return resp(200, '{}', {}, { url }); });
+  const page = svc.saveFromPage([{ id: 'c', name: 'S', vars: [['tok', 'p@ss w0rd/ü', true]], requests: [{ id: 'r', name: 'R', method: 'GET', url: 'http://h/x?token={{tok}}&q={{tok}}' }] }]);
+  const r = await svc.sendOne('c', page[0].requests[0]);
+  assert.ok(sent[0].includes('w0rd') || decodeURIComponent(sent[0]).includes('w0rd'), 'sent with the real value');
+  const hist = JSON.stringify(svc.read('history', []));
+  assert.ok(!hist.includes('w0rd'), `history: ${hist}`);
+  assert.ok(!String(r.request.url).includes('w0rd'), `page: ${r.request.url}`);
+});

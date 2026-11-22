@@ -126,15 +126,40 @@ async function send(req, vars = {}, { fetchFn = fetch, timeoutMs = 30000, signal
     const msg = aborted ? 'Cancelled.' : e && e.name === 'TimeoutError' ? 'No answer within the time limit.' : /ECONNREFUSED|fetch failed/i.test(String(e && (e.cause && e.cause.code || e.message))) ? 'Nothing answers at this address – is the server running?' : String(e && e.message || e);
     return { error: msg, cancelled: !!aborted, ms: Date.now() - t0, request: b };
   }
-  const buf = Buffer.from(await res.arrayBuffer());
+  let read;
+  try { read = await readCapped(res); } catch (e) {
+    const aborted = signal && signal.aborted;
+    return { error: aborted ? 'Cancelled.' : e && e.name === 'TimeoutError' ? 'No answer within the time limit.' : String(e && e.message || e), cancelled: !!aborted, ms: Date.now() - t0, request: b };
+  }
+  const { buf, size, sizeAtLeast } = read;
   const ms = Date.now() - t0;
   const headers = {}; res.headers.forEach((v, k) => { headers[k] = v; });
   const contentType = headers['content-type'] || '';
   const textual = !contentType || /json|text|xml|javascript|html|csv|yaml|x-www-form-urlencoded/i.test(contentType);
-  const cut = buf.length > MAX_BODY;
-  const part = cut ? buf.subarray(0, MAX_BODY) : buf;
+  const cut = size > buf.length;
+  const part = buf;
   const setCookies = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : (headers['set-cookie'] ? [headers['set-cookie']] : []);
-  return { status: res.status, statusText: res.statusText, ms, size: buf.length, headers, contentType, cut, body: textual ? part.toString('utf8') : part.toString('base64'), base64: !textual, request: b, url: res.url || b.url, redirected: !!res.redirected, setCookies };
+  return { status: res.status, statusText: res.statusText, ms, size, ...(sizeAtLeast ? { sizeAtLeast: true } : {}), headers, contentType, cut, body: textual ? part.toString('utf8') : part.toString('base64'), base64: !textual, request: b, url: res.url || b.url, redirected: !!res.redirected, setCookies };
+}
+
+/**
+ * Read the answer, but keep at most MAX_BODY in memory: a huge or endless answer (stream, big download) used to be read
+ * completely and could take Hostwerk down. Beyond that it only counts up to MAX_COUNT, then stops reading.
+ */
+const MAX_COUNT = 64 * 1024 * 1024;
+async function readCapped(res, max = MAX_BODY) {
+  const reader = res.body && typeof res.body.getReader === 'function' ? res.body.getReader() : null;
+  if (!reader) { const all = Buffer.from(await res.arrayBuffer()); return { buf: all.subarray(0, max), size: all.length }; }
+  const chunks = []; let kept = 0; let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (kept < max) { const c = Buffer.from(value.buffer, value.byteOffset, Math.min(value.length, max - kept)); chunks.push(c); kept += c.length; }
+    if (size >= Math.max(MAX_COUNT, max + 1)) { reader.cancel().catch(() => {}); break; }
+  }
+  // Bei MAX_COUNT aufgehört zu zählen: die Antwort war mindestens so groß (die Seite zeigt „≥ 64 MB“)
+  return { buf: Buffer.concat(chunks), size, sizeAtLeast: size >= MAX_COUNT };
 }
 
 /* ---------------- Cookies (je Sammlung, auf Wunsch) ---------------- */
@@ -185,6 +210,21 @@ function redactUrl(url) {
   let s = String(url || '').replace(/(:\/\/[^/\s:@]+:)[^/\s@]+@/, `$1${MASK}@`);
   s = s.replace(/([?&])([^=&#]+)=([^&#]*)/g, (m, sep, k, v) => (SECRET_NAME.test(decodeURIComponent(k)) && v && !/^\{\{[\w.-]+\}\}$/.test(v) ? `${sep}${k}=${MASK}` : m));
   return s;
+}
+/**
+ * Werte geheimer Variablen überall durch •••••• ersetzen – auch so, wie sie nach dem Einsetzen in eine Adresse aussehen
+ * (URL-kodiert: Leer- und Sonderzeichen werden von new URL / Formularen zu %20, + oder %XX umgeschrieben).
+ */
+function scrubber(values) {
+  const forms = new Set();
+  for (const v of values || []) {
+    const s = String(v || ''); if (s.length < 3) continue;
+    forms.add(s);
+    for (const f of [encodeURIComponent(s), encodeURI(s), encodeURIComponent(s).replace(/%20/g, '+'), new URLSearchParams({ x: s }).toString().slice(2)]) forms.add(f);
+    try { forms.add(new URL(`http://x/?q=${s}`).search.slice(3)); forms.add(new URL(`http://x/${s}`).pathname.slice(1)); } catch { /* keine Adresse */ }
+  }
+  const list = [...forms].filter((f) => f.length >= 3).sort((a, b) => b.length - a.length);
+  return (x) => (typeof x === 'string' && list.length ? list.reduce((s, v) => s.split(v).join(MASK), x) : x);
 }
 /** Kopfzeilen-Objekt (gesendet) für den Verlauf schwärzen. */
 const redactHeaders = (h) => Object.fromEntries(Object.entries(h || {}).map(([k, v]) => [k, SECRET_HEADER.test(k) ? MASK : v]));
@@ -248,21 +288,23 @@ function cleanCollections(list) {
   const rid = () => Math.random().toString(36).slice(2, 10);
   // Variable: [Name, Wert, geheim?] – geheim: ausdrücklich gesetzt oder am Namen erkannt
   const vars = (rows) => (Array.isArray(rows) ? rows : []).slice(0, 100).filter(Array.isArray).map(([k, v, secret]) => [str(k, 80), str(v, 2000), typeof secret === 'boolean' ? secret : SECRET_NAME.test(String(k || ''))]);
-  return (Array.isArray(list) ? list : []).slice(0, 200).map((c) => ({
+  const obj = (x) => x && typeof x === 'object' && !Array.isArray(x);
+  // Only objects – junk entries (null, numbers, text) are dropped instead of failing the whole save
+  return (Array.isArray(list) ? list : []).filter(obj).slice(0, 200).map((c) => ({
     id: str(c.id, 40) || rid(),
     name: str(c.name, 80) || 'Collection',
     vars: vars(c.vars),
     // Umgebungen (lokal, Staging, live …): eigene Variablen, die die der Sammlung überschreiben
-    envs: (Array.isArray(c.envs) ? c.envs : []).slice(0, 20).map((e) => ({ id: str(e && e.id, 40) || rid(), name: str(e && e.name, 40) || 'Environment', vars: vars(e && e.vars) })),
+    envs: (Array.isArray(c.envs) ? c.envs : []).filter(obj).slice(0, 20).map((e) => ({ id: str(e && e.id, 40) || rid(), name: str(e && e.name, 40) || 'Environment', vars: vars(e && e.vars) })),
     env: str(c.env, 40) || null,
     cookieJar: c.cookieJar === true,
-    cookies: c.cookies && typeof c.cookies === 'object' && !Array.isArray(c.cookies) ? Object.fromEntries(Object.entries(c.cookies).slice(0, 50).map(([h, l]) => [str(h, 200), Object.fromEntries(Object.entries(l || {}).slice(0, 50).map(([k, v]) => [str(k, 200), str(v, 4000)]))])) : {},
+    cookies: c.cookies && typeof c.cookies === 'object' && !Array.isArray(c.cookies) ? Object.fromEntries(Object.entries(c.cookies).slice(0, 50).map(([h, l]) => [str(h, 200), Object.fromEntries(Object.entries(obj(l) ? l : {}).slice(0, 50).map(([k, v]) => [str(k, 200), str(v, 4000)]))])) : {},
     runToken: /^[a-f0-9]{32}$/.test(c.runToken || '') ? c.runToken : null,
-    requests: (Array.isArray(c.requests) ? c.requests : []).slice(0, 500).map((r) => ({
+    requests: (Array.isArray(c.requests) ? c.requests : []).filter(obj).slice(0, 500).map((r) => ({
       id: str(r.id, 40) || rid(), name: str(r.name, 120) || 'Request',
       folder: str(r.folder, 200).split('/').map((x) => x.trim()).filter(Boolean).join('/'),
       method: METHODS.includes(String(r.method).toUpperCase()) ? String(r.method).toUpperCase() : 'GET',
-      url: str(r.url, 4000), headers: (Array.isArray(r.headers) ? r.headers : []).slice(0, 100).map(([k, v]) => [str(k, 200), str(v, 8000)]),
+      url: str(r.url, 4000), headers: (Array.isArray(r.headers) ? r.headers : []).slice(0, 100).filter(Array.isArray).map(([k, v]) => [str(k, 200), str(v, 8000)]),
       body: str(r.body, 1024 * 1024), bodyType: ['json', 'form', 'text', 'multipart'].includes(r.bodyType) ? r.bodyType : 'json',
       form: (Array.isArray(r.form) ? r.form : []).slice(0, 100).filter(Array.isArray).map(([k, v, t]) => [str(k, 200), str(v, 8000), t === 'file' ? 'file' : 'text']),
       options: { follow: !!(r.options && r.options.follow), timeout: Math.max(0, Math.min(600, Number(r.options && r.options.timeout) || 0)) },
@@ -271,4 +313,4 @@ function cleanCollections(list) {
   }));
 }
 
-module.exports = { METHODS, MASK, fill, build, words, parseCurl, toCurl, send, cleanCollections, storeCookies, cookieHeader, isSecretVar, redactRequest, redactHeaders, redactUrl, varsFor, jsonPath, runChecks };
+module.exports = { METHODS, MASK, MAX_COUNT, fill, build, words, parseCurl, toCurl, send, cleanCollections, storeCookies, cookieHeader, isSecretVar, redactRequest, redactHeaders, redactUrl, scrubber, varsFor, jsonPath, runChecks, readCapped };

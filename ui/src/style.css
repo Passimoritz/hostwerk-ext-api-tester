@@ -5,15 +5,22 @@
 .apit-grid > .apit-main { min-height: 0; overflow: hidden; }
 .apit-req-card { flex: 0 1 auto; max-height: 62%; display: flex; flex-direction: column; min-height: 0; }
 .apit-req-card > .apit-body { overflow: auto; min-height: 0; overscroll-behavior: contain; }
+/* Reiter der Anfrage brechen um statt unsichtbar seitlich zu scrollen (bei 1024 px war „Einstellungen“ nicht zu sehen) */
+.apit-req-card .tabs { flex-wrap: wrap; overflow: visible; }
+/* Die gleitende Linie kennt nur eine Zeile – beim Umbrechen stattdessen die Unterstreichung am aktiven Reiter selbst */
+.apit-req-card .tabs > .tab-ink { display: none; }
+.apit-req-card .tabs > .tab.active { border-bottom-color: var(--accent); }
 .apit-answer-card { flex: 1 1 0; min-height: 140px; display: flex; flex-direction: column; }
 .apit-answer-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .apit-answer-body .apit-pre { max-height: none; }
 /* Scrollflächen sind per Tastatur erreichbar (Pfeiltasten scrollen) – mit sichtbarem Fokus */
 .apit-answer-body:focus-visible, .apit-req-card > .apit-body:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
 @media (max-width: 900px) { .apit-grid { grid-template-columns: 1fr; height: auto !important; } .apit-grid > .apit-main { overflow: visible; } .apit-req-card { max-height: none; } }
+/* Niedrige Fenster (z. B. 1024×700): Anfrage und Antwort untereinander in voller Höhe, die Seite scrollt – statt winziger Flächen */
+@media (max-height: 760px) { .apit-grid { height: auto !important; } .apit-grid > .apit-side { max-height: 70vh; } .apit-grid > .apit-main { overflow: visible; } .apit-req-card { max-height: none; } .apit-answer-card { min-height: 320px; } }
 .apit-side { padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
 .apit-col { display: flex; flex-direction: column; gap: 2px; }
-.apit-col-name { background: none; border: 0; text-align: left; font: inherit; font-weight: 650; color: var(--text-2); padding: var(--sp-2); border-radius: var(--r-md); cursor: pointer; }
+.apit-col-name { background: none; border: 0; text-align: left; font: inherit; font-weight: 650; color: var(--text-2); padding: var(--sp-2); border-radius: var(--r-md); cursor: pointer; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .apit-col-name.is-active, .apit-col-name:hover { color: var(--text); background: var(--surface-2); }
 .apit-req { background: none; border: 0; border-radius: var(--r-md); padding: var(--sp-2); gap: var(--sp-2); cursor: pointer; font: inherit; color: var(--text); text-align: left; width: 100%; }
 .apit-req.is-active { background: var(--accent-soft); }
@@ -30,6 +37,7 @@
 .apit-hist { border-top: 1px solid var(--line); margin-top: var(--sp-2); padding-top: var(--sp-2); display: flex; flex-direction: column; gap: 2px; }
 .apit-main { gap: var(--sp-3); }
 .apit-colbar { flex-wrap: wrap; gap: var(--sp-2); }
+.apit-colbar > b { min-width: 0; max-width: 40ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .apit-env { width: auto; min-width: 140px; }
 .apit-body { gap: var(--sp-3); }
 .apit-body-tab { gap: var(--sp-2); }
@@ -51,3 +59,11 @@
 .apit-results { display: grid; gap: var(--sp-1); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--surface-2); }
 .apit-run { gap: var(--sp-1); }
 .apit-pre { max-height: 520px; white-space: pre-wrap; word-break: break-word; }
+/* Hülle nur für Strg+Enter – ohne eigenes Layout */
+.apit-tabbody { display: contents; }
+/* Laufergebnis: fehlgeschlagene Prüfungen aufklappbar */
+.apit-run-item > summary { list-style: none; cursor: pointer; }
+.apit-run-item > summary::-webkit-details-marker { display: none; }
+.apit-run-caret { flex: none; transition: transform .15s; }
+.apit-run-item[open] .apit-run-caret { transform: rotate(90deg); }
+.apit-run-checks { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-1) 0 var(--sp-2) calc(var(--sp-4) + var(--sp-2)); }

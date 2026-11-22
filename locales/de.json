@@ -135,6 +135,7 @@
   "Exported for Postman – secret values stay empty": "Für Postman exportiert – geheime Werte bleiben leer",
   "Time as HH:MM, e.g. 06:00": "Uhrzeit als HH:MM, z. B. 06:00",
   "Task “{name}” created": "Aufgabe „{name}“ angelegt",
+  "Task “{name}” updated": "Aufgabe „{name}“ angepasst",
   "Measuring – the result appears in the profiler.": "Wird gemessen – das Ergebnis erscheint in der Leistungs-Messung.",
   "Page check: {score} points": "Seiten-Check: {score} Punkte",
   "From the history": "Aus dem Verlauf",
@@ -163,5 +164,11 @@
       "The YAML could not be read ({}).",
       "Das YAML lässt sich nicht lesen ({})."
     ]
-  ]
+  ],
+  "at least {size}": "mindestens {size}",
+  "Answer copied": "Antwort kopiert",
+  "Could not copy": "Kopieren nicht möglich",
+  "Copy answer": "Antwort kopieren",
+  "Save as file": "Als Datei speichern",
+  "Save as file (first 2 MB)": "Als Datei speichern (erste 2 MB)"
 }

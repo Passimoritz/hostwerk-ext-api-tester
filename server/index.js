@@ -32,7 +32,10 @@ const MAX_UPLOAD = 50 * 1024 * 1024;
 
 function createService(host, deps = {}) {
   const { ctx } = host;
-  const secrets = deps.secrets || host.core('secrets');
+  // Sandboxed (installed from a folder/file instead of the catalog) there is no host.core – say why instead of
+  // "host.core is not a function" (it also needs the local network, which the sandbox blocks)
+  const secrets = deps.secrets || (typeof host.core === 'function' ? host.core('secrets') : null);
+  if (!secrets) throw new Error('The API tester needs the full Hostwerk extension host (install it from the catalog) – it cannot run sandboxed.');
   const fetchFn = deps.fetchFn || fetch;
   const dir = path.join(ctx.paths.data, 'api-tester');
   fs.mkdirSync(dir, { recursive: true });
@@ -53,10 +56,18 @@ function createService(host, deps = {}) {
   /** Stored collections with secrets opened (only inside this process). */
   const opened = () => stored().map((c) => ({ ...c, vars: openRows(c.vars), envs: c.envs.map((e) => ({ ...e, vars: openRows(e.vars) })) }));
   const forPage = () => stored().map((c) => ({ ...c, vars: maskRows(c.vars), envs: c.envs.map((e) => ({ ...e, vars: maskRows(e.vars) })), runToken: undefined, hasRunLink: !!c.runToken, cookies: {}, cookieCount: Object.values(c.cookies || {}).reduce((n, l) => n + Object.keys(l).length, 0) }));
-  /** Save from the page: masked values (••••••) keep the stored value of the same variable. */
+  /**
+   * Save from the page: masked values (••••••) keep the stored value of the same variable. Compared with the opened
+   * values, so a secret that loses its lock becomes plain text again (not "sealed:…"), and a renamed secret keeps its value
+   * (same row, old name no longer there).
+   */
   const saveFromPage = (list) => {
-    const old = stored();
-    const keep = (oldRows, rows) => rows.map(([k, v, secret]) => { const o = (oldRows || []).find(([ok]) => ok === k); return [k, v === C.MASK && o ? o[1] : v, secret]; });
+    const old = opened();
+    const keep = (oldRows, rows) => rows.map(([k, v, secret], i) => {
+      const prev = oldRows || [];
+      const o = prev.find(([ok]) => ok === k) || (prev[i] && !rows.some(([nk]) => nk === prev[i][0]) ? prev[i] : null);
+      return [k, v === C.MASK && o ? o[1] : v, secret];
+    });
     const next = C.cleanCollections(list).map((c) => {
       const o = old.find((x) => x.id === c.id) || {};
       // Cookie values never travel to the page – they stay as stored (or go when the cookie store is switched off)
@@ -88,14 +99,18 @@ function createService(host, deps = {}) {
     try { r = await C.send(request || {}, vars, { fetchFn, signal: ac.signal, readFile, cookies: col.cookieJar ? col.cookies : null }); } finally { if (rid) running.delete(rid); }
     r.checks = C.runChecks((request || {}).checks, r);
     if (col.cookieJar && r.setCookies && r.setCookies.length) patchStored(colId, (c) => { c.cookies = C.storeCookies(c.cookies, r.url || (r.request && r.request.url), r.setCookies); });
+    // Values of secret variables never leave this process: {{token}} anywhere in the address or body becomes •••••• for the
+    // history and the page (before, ?q={{token}} landed in plain text in the history)
+    // (auch URL-kodiert – ein Wert mit Leer- oder Sonderzeichen steht nach dem Einsetzen anders in der Adresse)
+    const scrub = C.scrubber([...col.vars, ...col.envs.flatMap((e) => e.vars)].filter(([, v, s]) => s && v).map(([, v]) => String(v)));
     if (history) {
       // History: request without secrets + short answer
       const h = read('history', []);
-      h.unshift({ t: Date.now(), col: colId, name: (request || {}).name || '', method: r.request ? r.request.method : (request || {}).method, url: C.redactUrl(r.request ? r.request.url : (request || {}).url), status: r.status || null, ms: r.ms, size: r.size || 0, error: r.error || null, request: C.redactRequest(request || {}) });
+      h.unshift({ t: Date.now(), col: colId, name: (request || {}).name || '', method: r.request ? r.request.method : (request || {}).method, url: scrub(C.redactUrl(r.request ? r.request.url : (request || {}).url)), status: r.status || null, ms: r.ms, size: r.size || 0, ...(r.sizeAtLeast ? { sizeAtLeast: true } : {}), error: r.error || null, request: C.redactRequest(request || {}) });
       write('history', h.slice(0, 50));
     }
     // What was sent (for the page): headers without secret values
-    if (r.request) r.request = { ...r.request, headers: C.redactHeaders(r.request.headers), form: undefined };
+    if (r.request) r.request = { ...r.request, url: scrub(r.request.url), body: scrub(r.request.body), headers: Object.fromEntries(Object.entries(C.redactHeaders(r.request.headers)).map(([k, v]) => [k, scrub(v)])), form: undefined };
     delete r.setCookies;
     return r;
   };
@@ -106,7 +121,8 @@ function createService(host, deps = {}) {
     if (!col) throw host.error(404, 'Collection not found');
     const results = [];
     for (const req of col.requests) {
-      const r = await sendOne(colId, req, { env, history: false });
+      // An unusable request (e.g. no valid address) fails on its own – the run goes on with the others
+      const r = await sendOne(colId, req, { env, history: false }).catch((e) => ({ error: e.message, ms: 0, checks: C.runChecks(req.checks, { error: e.message }) }));
       const checks = r.checks || [];
       const ok = !r.error && (checks.length ? checks.every((x) => x.ok) : r.status < 400);
       results.push({ id: req.id, name: req.name, folder: req.folder, method: req.method, status: r.status || null, ms: r.ms, error: r.error || null, ok, checks });
@@ -154,8 +170,11 @@ function activate(host) {
     const col = svc.patchStored(b.col, (c) => { if (!c.runToken) c.runToken = crypto.randomBytes(16).toString('hex'); });
     if (!col) throw host.error(404, 'Collection not found');
     const port = ctx.port || 7777;
-    const task = ctx.scheduler.save({ name: host.t('API tests: {name}', { name: col.name }).slice(0, 80), action: { type: 'url', target: `http://127.0.0.1:${port}/api/api-tester/run/${col.id}/${col.runToken}` }, schedule: { mode: 'daily', time, days: [] }, notify: 'error' });
-    res.json({ task: task.id, name: task.name });
+    const target = `http://127.0.0.1:${port}/api/api-tester/run/${col.id}/${col.runToken}`;
+    // Planned before? Then only the time changes – no second task for the same collection
+    const old = (typeof ctx.scheduler.list === 'function' ? ctx.scheduler.list() || [] : []).find((x) => x && x.action && typeof x.action.target === 'string' && x.action.target.endsWith(`/api/api-tester/run/${col.id}/${col.runToken}`));
+    const task = ctx.scheduler.save({ ...(old || {}), name: old ? old.name : host.t('API tests: {name}', { name: col.name }).slice(0, 80), action: { type: 'url', target }, schedule: { mode: 'daily', time, days: [] }, notify: old ? old.notify : 'error' }, old ? old.id : undefined);
+    res.json({ task: task.id, name: task.name, updated: !!old });
   });
   host.publicRouter.get('/api-tester/run/:col/:token', async (req, res) => {
     const col = svc.stored().find((c) => c.id === req.params.col);
@@ -174,7 +193,10 @@ function activate(host) {
     if (!/^https?:\/\//i.test(url)) throw host.error(400, 'Only http:// and https:// addresses are supported.');
     const resp = await fetch(url, { headers: { Accept: 'application/json, application/yaml, text/yaml, */*' }, signal: AbortSignal.timeout(20000) }).catch((e) => { throw host.error(502, 'The address could not be reached: {msg}', { msg: e.message }); });
     if (!resp.ok) throw host.error(502, 'The address answered with {status}.', { status: resp.status });
-    return resp.text();
+    // At most a little over 5 MB (more is refused anyway) – a huge answer is not read completely
+    const { buf, size } = await C.readCapped(resp, 5 * 1024 * 1024 + 1);
+    if (size > 5 * 1024 * 1024) throw host.error(413, 'The description is larger than 5 MB.');
+    return buf.toString('utf8');
   };
   // OpenAPI/Swagger (JSON oder YAML, als Text oder Adresse) → neue Sammlung mit allen Anfragen
   r.post('/api-tester/openapi', async (req, res) => {

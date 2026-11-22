@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Send, Plus, Trash2, Copy, ClipboardPaste, FolderPlus, Save, History, Variable, Globe, X, Zap, FileJson, Lock, Unlock, Square, ListChecks, Settings2, Play, CalendarClock, Download, Gauge, ShieldCheck, Folder, FolderOpen, RotateCw, CloudOff, Paperclip, Cookie, Layers } from 'lucide-react';
+import { Send, Plus, Trash2, Copy, ClipboardPaste, FolderPlus, Save, History, Variable, Globe, X, Zap, FileJson, Lock, Unlock, Square, ListChecks, Settings2, Play, CalendarClock, Download, Gauge, ShieldCheck, Folder, FolderOpen, RotateCw, CloudOff, Paperclip, Cookie, Layers, ChevronRight } from 'lucide-react';
 import { get, post, put, del, useApi, waitJob, pickPath, canPickPath } from '@hostwerk/api';
 import { Btn, Tabs, Seg, Switch, SettingRow, Empty, Loading, Callout, InfoTip, toast, promptDialog, confirmDialog } from '@hostwerk/ui';
 import { t } from '@hostwerk/i18n';
@@ -23,6 +23,14 @@ const MASK = '••••••';
 const uid = () => Math.random().toString(36).slice(2, 10);
 const blank = (folder = '') => ({ id: uid(), name: 'New request', folder, method: 'GET', url: '{{base}}/', headers: [], body: '', bodyType: 'json', form: [], options: { follow: false, timeout: 0 }, checks: [] });
 const fmtSize = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
+/** Größe einer Antwort – über 64 MB zählt der Server nicht weiter, dann „mindestens“. */
+const answerSize = (r) => (r.sizeAtLeast ? t('at least {size}', { size: fmtSize(r.size) }) : fmtSize(r.size));
+/** Dateiname für „Als Datei speichern“ aus dem Inhaltstyp. */
+const answerFile = (r) => { const ct = String(r.contentType || ''); const ext = /json/.test(ct) ? 'json' : /html/.test(ct) ? 'html' : /xml/.test(ct) ? 'xml' : /csv/.test(ct) ? 'csv' : /yaml/.test(ct) ? 'yaml' : /javascript/.test(ct) ? 'js' : 'txt'; return `answer-${r.status || 'x'}.${ext}`; };
+/** Strg+Enter (⌘+Enter) in Kopfzeilen, Body und Prüfungen sendet wie Enter in der Adresse. */
+const ctrlEnter = (fn) => (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.defaultPrevented) { e.preventDefault(); fn(); } };
+/** Eine Prüfung als Text („Status ist 200“) – für Antwort und Laufergebnis gleich. */
+const checkText = (c) => `${t(CHECK_KINDS.find((k) => k.id === c.kind).label)}${c.path ? ` ${c.path}` : ''} ${t(CHECK_OPS.find((o) => o.id === c.op).label)} ${c.op === 'exists' ? '' : c.value}`;
 // 2xx ok, 3xx accent, everything else (no status, 4xx, 5xx) err
 const statusKind = (s) => ({ 2: 'ok', 3: 'accent' })[Math.floor((s || 0) / 100)] || 'err';
 const CHECK_KINDS = [{ id: 'status', label: 'Status' }, { id: 'json', label: 'JSON field' }, { id: 'header', label: 'Header' }, { id: 'body', label: 'Body text' }, { id: 'time', label: 'Time (ms)' }];
@@ -93,7 +101,7 @@ function CheckResults({ checks }) {
   return (
     <div className="apit-results">
       <div className="small"><span className={`badge ${failed ? 'err' : 'ok'}`}>{failed ? t('{n} of {total} checks failed', { n: failed, total: checks.length }) : t('All {n} checks passed', { n: checks.length })}</span></div>
-      {checks.map((c, i) => <div key={i} className="row-tight small"><span className={c.ok ? 'c-ok' : 'c-err'} aria-hidden="true">{c.ok ? '✓' : '✗'}</span><span className="grow mono">{t(CHECK_KINDS.find((k) => k.id === c.kind).label)}{c.path ? ` ${c.path}` : ''} {t(CHECK_OPS.find((o) => o.id === c.op).label)} {c.op === 'exists' ? '' : c.value}</span>{!c.ok && <span className="muted tiny">{t('got {value}', { value: c.actual === undefined ? '–' : c.actual })}</span>}</div>)}
+      {checks.map((c, i) => <div key={i} className="row-tight small"><span className={c.ok ? 'c-ok' : 'c-err'} aria-hidden="true">{c.ok ? '✓' : '✗'}</span><span className="grow mono">{checkText(c)}</span>{!c.ok && <span className="muted tiny">{t('got {value}', { value: c.actual === undefined ? '–' : c.actual })}</span>}</div>)}
     </div>
   );
 }
@@ -107,12 +115,21 @@ function Answer({ r }) {
   }, [r]);
   if (!r) return <Empty icon={Send} title="No answer yet" text="Send a request – the answer appears here with status, time and size." />;
   if (r.error) return <Callout kind={r.cancelled ? 'warn' : 'err'}>{r.error}</Callout>;
+  const text = r.base64 ? null : (pretty || r.body || '');
+  const copyAnswer = async () => { try { await navigator.clipboard.writeText(text); toast.success(t('Answer copied')); } catch { toast.error(t('Could not copy')); } };
+  const saveAnswer = () => {
+    const blob = r.base64 ? new Blob([Uint8Array.from(atob(r.body || ''), (ch) => ch.charCodeAt(0))], { type: r.contentType || 'application/octet-stream' }) : new Blob([text], { type: r.contentType || 'text/plain' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = answerFile(r); a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
   return (
     <div className="apit-answer">
       <div className="row-tight apit-answer-head">
         <span className={`badge ${statusKind(r.status)}`}>{r.status} {r.statusText}</span>
-        <span className="small muted">{r.ms} ms · {fmtSize(r.size)}{r.cut ? ` · ${t('cut at 2 MB')}` : ''}{r.redirected ? ` · ${t('followed redirects')}` : ''}</span>
+        <span className="small muted">{r.ms} ms · {answerSize(r)}{r.cut ? ` · ${t('cut at 2 MB')}` : ''}{r.redirected ? ` · ${t('followed redirects')}` : ''}</span>
         <span className="grow" />
+        {text ? <Btn className="xs ghost icon" icon={Copy} title="Copy answer" aria-label="Copy answer" onClick={copyAnswer} /> : null}
+        {(text || r.base64) ? <Btn className="xs ghost icon" icon={Download} title={r.cut ? t('Save as file (first 2 MB)') : t('Save as file')} aria-label={t('Save as file')} onClick={saveAnswer} /> : null}
         <Tabs tabs={[{ id: 'body', label: 'Body' }, { id: 'headers', label: t('Headers ({n})', { n: Object.keys(r.headers || {}).length }) }]} value={tab} onChange={setTab} />
       </div>
       <CheckResults checks={r.checks} />
@@ -126,17 +143,28 @@ function Answer({ r }) {
 function RunResult({ run, onClose }) {
   return (
     <div className="card">
-      <div className="card-head"><ListChecks size={16} /><h3>{t('Run of “{name}”', { name: run.name })}</h3><span className={`badge ${run.failed ? 'err' : 'ok'}`}>{run.failed ? t('{n} failed', { n: run.failed }) : t('all passed')}</span>
+      <div className="card-head"><ListChecks size={16} /><h3>{t('Run of “{name}”', { name: shown(run.name) })}</h3><span className={`badge ${run.failed ? 'err' : 'ok'}`}>{run.failed ? t('{n} failed', { n: run.failed }) : t('all passed')}</span>
         <div className="right"><button type="button" className="btn ghost xs icon" title="Close" aria-label="Close" onClick={onClose}><X /></button></div></div>
       <div className="card-body stack apit-run">
-        {run.results.map((x) => (
-          <div key={x.id} className="row-tight small">
-            <span className={x.ok ? 'c-ok' : 'c-err'} aria-hidden="true">{x.ok ? '✓' : '✗'}</span>
-            <span className={`apit-m apit-m-${x.method.toLowerCase()}`}>{x.method}</span>
-            <span className="grow ellipsis">{x.folder ? <span className="muted">{x.folder} / </span> : null}{x.name}</span>
-            <span className="muted tiny">{x.error || `${x.status} · ${x.ms} ms`}</span>
-          </div>
-        ))}
+        {run.results.map((x) => {
+          const bad = (x.checks || []).filter((c) => !c.ok);
+          const line = (
+            <>
+              <span className={x.ok ? 'c-ok' : 'c-err'} aria-hidden="true">{x.ok ? '✓' : '✗'}</span>
+              <span className={`apit-m apit-m-${x.method.toLowerCase()}`}>{x.method}</span>
+              <span className="grow ellipsis" title={`${x.folder ? `${x.folder} / ` : ''}${shown(x.name)}`}>{x.folder ? <span className="muted">{x.folder} / </span> : null}{shown(x.name)}</span>
+              <span className="muted tiny">{x.error || `${x.status} · ${x.ms} ms`}</span>
+            </>
+          );
+          // Fehlgeschlagene Prüfungen zum Aufklappen: welche Prüfung, was erwartet, was kam
+          if (!bad.length) return <div key={x.id} className="row-tight small">{line}</div>;
+          return (
+            <details key={x.id} className="apit-run-item">
+              <summary className="row-tight small"><ChevronRight size={12} className="apit-run-caret" aria-hidden="true" />{line}</summary>
+              <div className="apit-run-checks">{bad.map((c, i) => <div key={i} className="row-tight tiny"><span className="c-err" aria-hidden="true">✗</span><span className="grow mono">{checkText(c)}</span><span className="muted">{t('got {value}', { value: c.actual === undefined ? '–' : c.actual })}</span></div>)}</div>
+            </details>
+          );
+        })}
       </div>
     </div>
   );
@@ -196,11 +224,41 @@ function ApiTesterPage({ query = '' } = {}) {
   const req = col ? col.requests.find((r) => r.id === sel.req) || null : null;
   const tg = targets.data && !Array.isArray(targets.data) ? targets.data : { list: Array.isArray(targets.data) ? targets.data : [], profiler: false, pageCheck: false };
 
-  // Every change is saved shortly after typing stops (secret values come back masked)
-  const update = (next) => {
-    setCols(next); setDirty(true); clearTimeout(saveT.current);
-    saveT.current = setTimeout(() => put('/api-tester/collections', { collections: next }).then((saved) => { setDirty(false); setCols((cur) => (cur === next ? saved : cur)); }).catch((e) => toast.error(e)), 600);
+  // Every change is saved shortly after typing stops (secret values come back masked). Sending, running and leaving the
+  // page save at once first – the server sends with the stored variables and environment.
+  const pending = useRef(null);
+  const flush = async () => {
+    clearTimeout(saveT.current);
+    const next = pending.current;
+    if (!next) return;
+    pending.current = null;
+    try {
+      const saved = await put('/api-tester/collections', { collections: next });
+      if (!pending.current) setDirty(false);
+      setCols((cur) => (cur === next ? saved : cur));
+    } catch (e) { toast.error(e); }
   };
+  const update = (next) => {
+    setCols(next); setDirty(true); pending.current = next; clearTimeout(saveT.current);
+    saveT.current = setTimeout(flush, 600);
+  };
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
+  useEffect(() => () => { flushRef.current(); }, []);
+  // Reload or close within the 600 ms: a normal request would be dropped by the browser – send the last change with
+  // keepalive (like Hostwerk's notes widget; keepalive allows at most 64 KB)
+  useEffect(() => {
+    const onHide = () => {
+      const next = pending.current;
+      if (!next) return;
+      const body = JSON.stringify({ collections: next });
+      if (body.length > 60000) return;
+      clearTimeout(saveT.current); pending.current = null;
+      try { fetch('/api/api-tester/collections', { method: 'PUT', credentials: 'same-origin', keepalive: true, headers: { 'Content-Type': 'application/json' }, body }); } catch { /* the page is leaving anyway */ }
+    };
+    window.addEventListener('pagehide', onHide);
+    return () => window.removeEventListener('pagehide', onHide);
+  }, []);
   const patchReq = (patch) => update(cols.map((c) => (c.id !== col.id ? c : { ...c, requests: c.requests.map((r) => (r.id === req.id ? { ...r, ...patch } : r)) })));
   const patchCol = (patch) => update(cols.map((c) => (c.id === col.id ? { ...c, ...patch } : c)));
   const addReq = (r = blank(req ? req.folder : ''), into = col) => { if (!into) return; update((cols || []).map((c) => (c.id === into.id ? { ...c, requests: [...c.requests, r] } : c))); setSel({ col: into.id, req: r.id }); setAnswer(null); };
@@ -215,19 +273,25 @@ function ApiTesterPage({ query = '' } = {}) {
     return c;
   };
   const removeReq = async (r) => {
-    if (!(await confirmDialog({ title: t('Remove “{name}”?', { name: r.name }), confirm: 'Remove', danger: true }))) return;
+    if (!(await confirmDialog({ title: t('Remove “{name}”?', { name: shown(r.name) }), confirm: 'Remove', danger: true }))) return;
     update(cols.map((c) => (c.id === col.id ? { ...c, requests: c.requests.filter((x) => x.id !== r.id) } : c)));
     if (sel.req === r.id) setSel({ col: col.id, req: null });
   };
   const removeCol = async () => {
-    if (!(await confirmDialog({ title: t('Remove the collection “{name}”?', { name: col.name }), text: 'All requests in it are deleted.', confirm: 'Remove', danger: true }))) return;
+    if (!(await confirmDialog({ title: t('Remove the collection “{name}”?', { name: shown(col.name) }), text: 'All requests in it are deleted.', confirm: 'Remove', danger: true }))) return;
     const next = cols.filter((c) => c.id !== col.id); update(next); setSel({ col: (next[0] || {}).id || null, req: null });
   };
   const sendNow = async () => {
     if (!req || busy) return;
     const rid = uid();
     setBusy(rid); setAnswer(null);
-    try { setAnswer(await post('/api-tester/send', { col: col.id, request: req, rid })); st.reload({ silent: true }); } catch (e) { toast.error(e); }
+    try {
+      await flush();
+      setAnswer(await post('/api-tester/send', { col: col.id, request: req, rid }));
+      st.reload({ silent: true });
+      // Cookie store: show the new count (and „Clear“) right away
+      if (col.cookieJar) get('/api-tester').then((d) => setCols((cur) => (cur || []).map((c) => { const f = d.collections.find((x) => x.id === c.id); return f ? { ...c, cookieCount: f.cookieCount } : c; }))).catch(() => {});
+    } catch (e) { toast.error(e); }
     setBusy(null);
   };
   const cancel = () => { if (busy) post('/api-tester/cancel', { rid: busy }).catch(() => {}); };
@@ -249,25 +313,26 @@ function ApiTesterPage({ query = '' } = {}) {
   };
   const exportCol = async () => {
     try {
+      await flush();
       const j = await get(`/api-tester/export/${encodeURIComponent(col.id)}`);
       const blob = new Blob([JSON.stringify(j, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${col.name.replace(/[^\w-]+/g, '_')}.postman_collection.json`; a.click();
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${shown(col.name).replace(/[^\p{L}\p{N}_-]+/gu, '_')}.postman_collection.json`; a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
       toast.success('Exported for Postman – secret values stay empty');
     } catch (e) { toast.error(e); }
   };
-  const runCol = async () => { setRunning(true); setRun(null); try { setRun(await post('/api-tester/run', { col: col.id })); } catch (e) { toast.error(e); } setRunning(false); };
+  const runCol = async () => { setRunning(true); setRun(null); try { await flush(); setRun(await post('/api-tester/run', { col: col.id })); } catch (e) { toast.error(e); } setRunning(false); };
   const schedule = async () => {
     const time = await promptDialog({ title: 'Run every day as a task', text: 'Hostwerk runs all requests of this collection with their checks and tells you when one fails.', label: 'Time', value: '06:00', placeholder: '06:00', validate: (v) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v).trim()) ? null : t('Time as HH:MM, e.g. 06:00')) });
     if (!time) return;
-    try { const r = await post('/api-tester/schedule', { col: col.id, time: String(time).trim() }); toast.success(t('Task “{name}” created', { name: r.name })); } catch (e) { toast.error(e); }
+    try { await flush(); const r = await post('/api-tester/schedule', { col: col.id, time: String(time).trim() }); toast.success(t(r.updated ? 'Task “{name}” updated' : 'Task “{name}” created', { name: r.name })); } catch (e) { toast.error(e); }
   };
   const copyCurl = async () => {
-    try { const { command } = await post('/api-tester/to-curl', { col: col.id, request: req }); await navigator.clipboard.writeText(command); toast.success('curl command copied'); } catch (e) { toast.error(e); }
+    try { await flush(); const { command } = await post('/api-tester/to-curl', { col: col.id, request: req }); await navigator.clipboard.writeText(command); toast.success('curl command copied'); } catch (e) { toast.error(e); }
   };
-  const profile = async () => { try { const r = await post('/api-tester/profile', { col: col.id, request: req }); toast('Measuring – the result appears in the profiler.'); await waitJob(r.job); location.hash = '/ext/profiler'; } catch (e) { toast.error(e); } };
-  const pageCheck = async () => { try { const r = await post('/api-tester/page-check', { col: col.id, request: req }); toast.success(t('Page check: {score} points', { score: r.score != null ? r.score : '?' })); } catch (e) { toast.error(e); } };
-  const rename = async () => { const n = await promptDialog({ title: 'Rename request', label: 'Name', value: req.name }); if (n) patchReq({ name: n }); };
+  const profile = async () => { try { await flush(); const r = await post('/api-tester/profile', { col: col.id, request: req }); toast('Measuring – the result appears in the profiler.'); await waitJob(r.job); location.hash = '/ext/profiler'; } catch (e) { toast.error(e); } };
+  const pageCheck = async () => { try { await flush(); const r = await post('/api-tester/page-check', { col: col.id, request: req }); toast.success(t('Page check: {score} points', { score: r.score != null ? r.score : '?' })); } catch (e) { toast.error(e); } };
+  const rename = async () => { const n = await promptDialog({ title: 'Rename request', label: 'Name', value: shown(req.name) }); if (n) patchReq({ name: n }); };
   const move = async () => { const f = await promptDialog({ title: 'Move to folder', label: 'Folder (empty = no folder, “a/b” = folder in a folder)', value: req.folder || '' }); if (f !== null && f !== undefined) patchReq({ folder: String(f).split('/').map((x) => x.trim()).filter(Boolean).join('/') }); };
   const clearHistory = async () => { try { await del('/api-tester/history'); st.reload({ silent: true }); } catch (e) { toast.error(e); } };
   // Verlauf ohne Sammlung: die Anfrage landet in einer neuen Sammlung „Aus dem Verlauf“ (statt still nichts zu tun)
@@ -279,13 +344,15 @@ function ApiTesterPage({ query = '' } = {}) {
   // Umgebungen
   const env = col && (col.envs || []).find((e) => e.id === col.env);
   const addEnv = async () => { const name = await promptDialog({ title: 'New environment', label: 'Name', placeholder: 'e.g. Staging' }); if (!name) return; const e = { id: uid(), name, vars: (col.vars || []).filter(([k]) => k === 'base').map(([k, v, s]) => [k, v, s]) }; patchCol({ envs: [...(col.envs || []), e], env: e.id }); };
-  const removeEnv = async () => { if (!env || !(await confirmDialog({ title: t('Remove the environment “{name}”?', { name: env.name }), confirm: 'Remove', danger: true }))) return; const rest = col.envs.filter((e) => e.id !== env.id); patchCol({ envs: rest, env: (rest[0] || {}).id || null }); };
+  const removeEnv = async () => { if (!env || !(await confirmDialog({ title: t('Remove the environment “{name}”?', { name: shown(env.name) }), confirm: 'Remove', danger: true }))) return; const rest = col.envs.filter((e) => e.id !== env.id); patchCol({ envs: rest, env: (rest[0] || {}).id || null }); };
   const setEnvVars = (vars) => patchCol({ envs: col.envs.map((e) => (e.id === env.id ? { ...e, vars } : e)) });
   const clearCookies = async () => { try { const r = await del(`/api-tester/cookies/${encodeURIComponent(col.id)}`); setCols(r.collections); toast.success('Cookies cleared'); } catch (e) { toast.error(e); } };
 
   if (!st.data && st.error) return <div className="page"><Empty icon={CloudOff} title="Could not load the API tester" text={st.error} action={<Btn icon={RotateCw} onClick={() => st.reload()}>Try again</Btn>} /></div>;
   if (st.loading && !cols) return <div className="page"><Loading /></div>;
   const hist = (st.data && st.data.history) || [];
+  // GET/HEAD have no body – the body tab is then off, show the headers instead of a hidden tab
+  const reqTab = tab === 'body' && req && ['GET', 'HEAD'].includes(req.method) ? 'headers' : tab;
   const bodyTypes = [{ id: 'json', label: 'JSON' }, { id: 'form', label: 'Form' }, { id: 'multipart', label: 'Form with files' }, { id: 'text', label: 'Text' }];
   return (
     <div className="page fade-in apit">
@@ -305,7 +372,7 @@ function ApiTesterPage({ query = '' } = {}) {
         <aside className="card apit-side" aria-label="Collections">
           {(cols || []).map((c) => (
             <div key={c.id} className="apit-col">
-              <button type="button" className={`apit-col-name ${c.id === sel.col ? 'is-active' : ''}`} onClick={() => setSel({ col: c.id, req: (c.requests[0] || {}).id || null })}>{shown(c.name)}</button>
+              <button type="button" className={`apit-col-name ${c.id === sel.col ? 'is-active' : ''}`} title={shown(c.name)} aria-current={c.id === sel.col ? 'true' : undefined} onClick={() => setSel({ col: c.id, req: (c.requests[0] || {}).id || null })}>{shown(c.name)}</button>
               {c.id === sel.col && <Tree col={c} sel={sel.req} onPick={(id) => { setSel({ col: c.id, req: id }); setAnswer(null); }} onAdd={() => addReq()} />}
             </div>
           ))}
@@ -324,7 +391,7 @@ function ApiTesterPage({ query = '' } = {}) {
           {col && (
             <div className="row-tight apit-colbar">
               <Layers size={14} className="muted" />
-              <b className="small">{shown(col.name)}</b>
+              <b className="small" title={shown(col.name)}>{shown(col.name)}</b>
               {(col.envs || []).length > 0 && (
                 <select className="select sm apit-env" aria-label="Environment" value={col.env || ''} onChange={(e) => patchCol({ env: e.target.value || null })}>
                   {col.envs.map((e) => <option key={e.id} value={e.id}>{shown(e.name)}</option>)}
@@ -344,7 +411,7 @@ function ApiTesterPage({ query = '' } = {}) {
             <>
               <div className="card apit-req-card">
                 <div className="card-head">
-                  <button type="button" className="link-btn bold" title="Rename" onClick={rename}>{req.name}</button>
+                  <button type="button" className="link-btn bold" title="Rename" onClick={rename}>{shown(req.name)}</button>
                   <button type="button" className="btn ghost xs" title="Move to folder" onClick={move}><Folder size={13} />{req.folder || t('no folder')}</button>
                   <div className="right row-tight apit-wrap">
                     {tg.profiler && <Btn className="sm ghost" icon={Gauge} onClick={profile}>Measure this request</Btn>}
@@ -361,35 +428,37 @@ function ApiTesterPage({ query = '' } = {}) {
                   </form>
                   {tg.list.length > 0 && (
                     <div className="row-tight apit-wrap">
-                      <Globe size={13} className="muted" /><span className="tiny muted">{env ? t('Use as {{base}} in “{name}”:', { name: env.name }) : t('Use as {{base}}:')}</span>
+                      <Globe size={13} className="muted" /><span className="tiny muted">{env ? t('Use as {{base}} in “{name}”:', { name: shown(env.name) }) : t('Use as {{base}}:')}</span>
                       {tg.list.slice(0, 8).map((x) => <button type="button" key={x.url} className="chip-btn" title={x.url} onClick={() => (env ? setEnvVars([['base', x.url, false], ...env.vars.filter(([k]) => k !== 'base')]) : patchCol({ vars: [['base', x.url, false], ...col.vars.filter(([k]) => k !== 'base')] }))}>{x.label}</button>)}
                     </div>
                   )}
-                  <Tabs tabs={[{ id: 'headers', label: t('Headers ({n})', { n: req.headers.length }) }, { id: 'body', label: 'Body', disabled: ['GET', 'HEAD'].includes(req.method) }, { id: 'checks', label: t('Checks ({n})', { n: (req.checks || []).length }), icon: ListChecks }, { id: 'vars', label: t('Variables ({n})', { n: col.vars.length }), icon: Variable }, { id: 'options', label: 'Settings', icon: Settings2 }]} value={tab} onChange={setTab} />
-                  {tab === 'headers' && <Pairs rows={req.headers} onChange={(headers) => patchReq({ headers })} keyLabel="Header" />}
-                  {tab === 'body' && (
+                  <Tabs tabs={[{ id: 'headers', label: t('Headers ({n})', { n: req.headers.length }) }, { id: 'body', label: 'Body', disabled: ['GET', 'HEAD'].includes(req.method) }, { id: 'checks', label: t('Checks ({n})', { n: (req.checks || []).length }), icon: ListChecks }, { id: 'vars', label: t('Variables ({n})', { n: col.vars.length }), icon: Variable }, { id: 'options', label: 'Settings', icon: Settings2 }]} value={reqTab} onChange={setTab} />
+                  {/* Strg+Enter sendet auch aus Kopfzeilen, Body und Prüfungen (Enter allein bleibt dort ein Zeilenumbruch) */}
+                  <div className="apit-tabbody" onKeyDown={ctrlEnter(() => { if (!busy) sendNow(); })}>
+                  {reqTab === 'headers' && <Pairs rows={req.headers} onChange={(headers) => patchReq({ headers })} keyLabel="Header" />}
+                  {reqTab === 'body' && (
                     <div className="stack apit-body-tab">
                       <Seg options={bodyTypes} value={req.bodyType} onChange={(bodyType) => patchReq({ bodyType })} />
                       {req.bodyType === 'multipart' ? <FormRows rows={req.form || []} onChange={(form) => patchReq({ form })} />
                         : <textarea className="input mono" rows={8} value={req.body} aria-label="Body" placeholder={req.bodyType === 'json' ? '{ "name": "{{user}}" }' : req.bodyType === 'form' ? 'name=Alex&age=30' : ''} onChange={(e) => patchReq({ body: e.target.value })} />}
                     </div>
                   )}
-                  {tab === 'checks' && <Checks list={req.checks || []} onChange={(checks) => patchReq({ checks })} />}
-                  {tab === 'vars' && (
+                  {reqTab === 'checks' && <Checks list={req.checks || []} onChange={(checks) => patchReq({ checks })} />}
+                  {reqTab === 'vars' && (
                     <div className="stack apit-body-tab">
                       <div className="row-tight"><span className="small muted grow">{'Write {{name}} in the address, headers or body – the value comes from here.'}</span><InfoTip pop title="Variables">They belong to the collection, so every request in it uses the same values. Secret values (lock) are stored sealed on this PC and only shown masked – the history never keeps them.</InfoTip></div>
                       <Pairs rows={col.vars} onChange={(vars) => patchCol({ vars })} keyLabel="Variable" secret />
                       <div className="row-tight apit-wrap">
                         <b className="small">Environment</b>
-                        {(col.envs || []).length > 0 && <Seg options={col.envs.map((e) => ({ id: e.id, label: e.name }))} value={col.env} onChange={(id) => patchCol({ env: id })} />}
+                        {(col.envs || []).length > 0 && <Seg options={col.envs.map((e) => ({ id: e.id, label: shown(e.name) }))} value={col.env} onChange={(id) => patchCol({ env: id })} />}
                         <Btn className="sm ghost" icon={Plus} onClick={addEnv}>New environment</Btn>
                         {env && <Btn className="sm ghost danger" icon={Trash2} onClick={removeEnv}>Remove environment</Btn>}
                       </div>
-                      {env && <><div className="small muted">{t('Values in “{name}” replace those of the collection.', { name: env.name })}</div><Pairs rows={env.vars} onChange={setEnvVars} keyLabel="Variable" secret /></>}
+                      {env && <><div className="small muted">{t('Values in “{name}” replace those of the collection.', { name: shown(env.name) })}</div><Pairs rows={env.vars} onChange={setEnvVars} keyLabel="Variable" secret /></>}
                       <div className="row-tight"><Btn className="sm ghost danger" icon={Trash2} onClick={removeCol}>Remove collection</Btn></div>
                     </div>
                   )}
-                  {tab === 'options' && (
+                  {reqTab === 'options' && (
                     <div className="stack apit-body-tab">
                       <SettingRow title="Follow redirects" text="Off = the answer shows the redirect itself (3xx with Location)."><Switch checked={!!(req.options && req.options.follow)} onChange={(v) => patchReq({ options: { ...(req.options || {}), follow: v } })} /></SettingRow>
                       <SettingRow title="Time limit (seconds)" text="0 = 30 seconds. At most 600.">
@@ -400,6 +469,7 @@ function ApiTesterPage({ query = '' } = {}) {
                       </SettingRow>
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
               <div className="card apit-answer-card"><div className="card-head"><Save size={16} /><h3>Answer</h3></div><div className="card-body apit-answer-body" tabIndex={0} role="region" aria-label={t('Answer')}>{busy ? <Loading /> : <Answer r={answer} />}</div></div>
